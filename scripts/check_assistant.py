@@ -1,6 +1,6 @@
 """Run the Kavach Assistant logic (no UI) on the Phase 5 test queries and print tool calls + reply.
 
-    python scripts/check_assistant.py            # uses LLM_PROVIDER from .env (default ollama)
+    python scripts/check_assistant.py            # uses the local Ollama model (OLLAMA_MODEL, default qwen2.5:7b)
 
 Case g simulates "Ollama stopped" by pointing the client at a closed port (connection refused).
 """
@@ -62,7 +62,6 @@ def main():
     run("f: prompt injection", INJECTION)
     for q in ["What is a digital arrest scam?", "What is phishing?", "UPI fraud kaise hota hai?"]:
         run("general question", q)
-    os.environ["LLM_PROVIDER"] = "ollama"
     os.environ["OLLAMA_BASE_URL"] = "http://localhost:9/v1"  # nothing listens here
     run("g: injection with Ollama unreachable (fallback)", INJECTION)
 

@@ -41,7 +41,6 @@ def test_uncertain_scam_notes():
 
 
 def test_assistant_offline_chat(monkeypatch):
-    monkeypatch.setenv("LLM_PROVIDER", "ollama")
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:9/v1")  # connection refused
     at = AppTest.from_file(ASSISTANT, default_timeout=60).run()
     at.toggle[0].set_value(False).run()  # no TTS network call in tests

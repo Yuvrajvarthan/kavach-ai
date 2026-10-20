@@ -7,15 +7,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import streamlit as st  # noqa: E402
 
 from app.common import demo_files, page_setup  # noqa: E402
-from app.llm import llm_config, run_assistant  # noqa: E402
+from app.llm import llm_config, run_assistant, warm_up  # noqa: E402
 from app.scan_core import build_verdict  # noqa: E402
+from app.speech import audio_format  # noqa: E402
 
 page_setup("Kavach Assistant", "🛡️")
 cfg = llm_config()
+
+
+@st.cache_resource(show_spinner="Loading the local AI model…")
+def _warm_up_once() -> bool:
+    return warm_up()
+
+
 st.title("🛡️ Kavach Assistant")
 st.caption(f"Ask in English, Hindi or Hinglish, by text or voice. The trained ML model classifies "
            f"every message; the AI ({cfg['provider']} · {cfg['model'] or 'not configured'}) only "
-           f"explains the result.")
+           f"explains the result. Everything runs on this computer.")
+if not _warm_up_once():
+    _warm_up_once.clear()  # retry on the next refresh instead of caching the failure
+    st.warning("Ollama isn't running, so answers come from the trained model and vetted advice only. "
+               "Start the Ollama app and refresh this page for full answers.")
 
 if "chat" not in st.session_state:
     st.session_state.chat = []  # [{"role", "content", "voice", "result", "audio"}]
@@ -58,7 +70,7 @@ def _render(msg: dict):
             st.caption("🛡️ The AI's reply was replaced by a checked answer built from the model "
                        "output and vetted guidance.")
         if msg.get("audio"):
-            st.audio(msg["audio"], format="audio/mp3")
+            st.audio(msg["audio"], format=audio_format(msg["audio"]))
         with st.expander(f"🔧 Tools called ({len(r.tool_calls)}): the model, not the AI, classified"):
             st.caption(f"Mode: {r.mode} · language: {r.language} · provider: {r.provider}")
             if r.error:
@@ -117,7 +129,7 @@ if st.session_state.get("pending_turn"):
         audio = None
         if speak:
             from app.speech import synthesize
-            audio = synthesize(result.reply)  # None if offline -> text only
+            audio = synthesize(result.reply)  # offline -> macOS voice; None -> text only
         st.session_state.chat.append({"role": "assistant", "content": result.reply,
                                       "result": result, "audio": audio})
         st.session_state.pending_turn = None

@@ -40,7 +40,6 @@ needs_ollama = pytest.mark.skipif(not _ollama_up(), reason="Ollama not running o
 
 @pytest.fixture
 def offline(monkeypatch):
-    monkeypatch.setenv("LLM_PROVIDER", "ollama")
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:9/v1")  # connection refused
 
 

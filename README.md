@@ -2,7 +2,8 @@
 
 **Paste, screenshot or speak a suspicious SMS / WhatsApp message. Kavach tells you which kind of scam it looks like, how risky it is, which words gave it away, and what to do next.**
 
-[![Live demo](https://img.shields.io/badge/Live%20demo-coming%20soon-lightgrey?logo=huggingface)](#)<!-- Phase 7: set LIVE_DEMO_URL in scripts/build_readme.py -->
+![Runs locally](https://img.shields.io/badge/Runs-100%25%20locally-success?logo=apple)
+![Ollama](https://img.shields.io/badge/LLM-Ollama%20qwen2.5%3A7b-black)
 ![Python 3.11](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/App-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/ML-scikit--learn-F7931E?logo=scikitlearn&logoColor=white)
@@ -11,6 +12,10 @@
 ![Kavach AI home page](docs/screenshots/home.png)
 
 > Data Science Lab mini project · Sem VII 2026-27 · Dept. of IT, SIES Graduate School of Technology, Nerul
+
+**Runs fully on your laptop.** The classifier, OCR, speech-to-text and the assistant's language model
+(Ollama `qwen2.5:7b`) all run locally; no API keys and no cloud services. Only the natural-sounding voice
+(edge-tts) uses the internet, and without it replies are spoken by the built-in macOS voices.
 
 ## The problem
 
@@ -62,17 +67,17 @@ flowchart LR
     Q["User question<br/>text or voice"] --> RT{"Something to check?"}
     RT -- "yes: message, link, incident" --> F["Code calls classify_message<br/>+ safety_guidance"]
     RT -- "no: general question" --> G["LLM may call<br/>safety_guidance / query_dataset"]
-    F --> LLM["LLM explains<br/>Ollama or OpenRouter"]
+    F --> LLM["LLM explains<br/>local Ollama · qwen2.5:7b"]
     G --> LLM
     LLM --> GD{"Guards: contradicts model?<br/>unverified number or link?<br/>invented %? wrong script?"}
-    GD -- pass --> OUT["Reply + edge-tts speech"]
+    GD -- pass --> OUT["Reply + speech<br/>edge-tts, or macOS voice offline"]
     GD -- "fail, or LLM down" --> TPL["Template answer built<br/>from tool outputs"]
 ```
 
 For anything that looks like a message to check, **the code itself** runs the trained classifier before the
 LLM is called, so the verdict never depends on the LLM choosing a tool. General questions ("What is a
-digital arrest scam?") are never classified and get no probability. If the LLM is unreachable, rate-limited
-or fails a guard, the user gets a template answer built from the model output and vetted guidance.
+digital arrest scam?") are never classified and get no probability. If Ollama is not running, times out
+or the reply fails a guard, the user gets a template answer built from the model output and vetted guidance.
 
 ## Results
 
@@ -143,12 +148,12 @@ All models use TF-IDF (word 1-2 grams + char 3-5 grams) and balanced class weigh
   scams) appear under different classes, so the exact scam *type* is less reliable than scam vs legit.
 - **Phone-number shortcut, removed.** Phone numbers occur in 0.0% of scam rows and
   16.2% of legit rows, so a `<PHONE>` token teaches "phone number → legit". The
-  deployed model never sees phone numbers (they still appear in the red-flag checklist):
+  final model never sees phone numbers (they still appear in the red-flag checklist):
 
 | | Macro-F1 grouped | UCI F1 | UCI recall | Hinglish-only F1 |
 |---|---:|---:|---:|---:|
 | With a `<PHONE>` token | 0.9851 | 0.2422 | 0.3783 | 0.7561 |
-| Phone numbers removed (deployed) | 0.9854 | 0.2881 | 0.4579 | 0.7561 |
+| Phone numbers removed (final model) | 0.9854 | 0.2881 | 0.4579 | 0.7561 |
 
 - **Rule layer.** Written from general scam-awareness guidance without looking at the out-of-domain rows.
   It raises few false alarms but adds little recall at the "high" threshold:
@@ -182,33 +187,28 @@ Full analysis: [`notebooks/01_eda_and_modelling.ipynb`](notebooks/01_eda_and_mod
 | ML | scikit-learn (TF-IDF, Linear SVM, Logistic Regression, Naive Bayes, Random Forest), LIME |
 | Data & plots | pandas, NumPy, matplotlib, seaborn, Plotly, Jupyter |
 | App | Streamlit (multipage) |
-| Speech & OCR | faster-whisper (`small`, CPU int8), edge-tts (`en-IN-NeerjaNeural`, `hi-IN-SwaraNeural`), RapidOCR (ONNX Runtime) |
-| LLM | OpenAI-compatible client → Ollama `qwen2.5:7b` (local) or OpenRouter (hosted), with tool calling |
+| Speech & OCR | faster-whisper (`small`, CPU int8), edge-tts (`en-IN-NeerjaNeural`, `hi-IN-SwaraNeural`) with macOS `say` (Rishi, Lekha) offline, RapidOCR (ONNX Runtime) |
+| LLM | Ollama `qwen2.5:7b` running locally (OpenAI-compatible API), with tool calling |
 | Testing | pytest, Streamlit AppTest, Playwright (screenshots) |
 
-## Run locally (Ollama)
+## Run it
+
+1. Install [Ollama](https://ollama.com/download) and start the Ollama app.
+2. Then:
 
 ```bash
 git clone https://github.com/Yuvrajvarthan/kavach-ai.git && cd kavach-ai
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env                 # LLM_PROVIDER=ollama by default
-ollama pull qwen2.5:7b               # optional: only the Assistant needs an LLM
-streamlit run app/Home.py            # http://localhost:8501
+ollama pull qwen2.5:7b               # the Assistant's local language model (4.7 GB, one time)
+streamlit run app/Home.py            # opens http://localhost:8501
 ```
+
+No `.env` is needed; copy `.env.example` to `.env` only to change the model or voices. The first voice scan
+downloads the Whisper `small` model once (about 460 MB).
 
 The trained model is committed in `artifacts/`, so no training is needed. The Scan and Model Performance pages
 work without any LLM; without one, the Assistant answers in offline template mode.
-
-## Run hosted (OpenRouter)
-
-Set these in `.env` (or as Hugging Face Space secrets):
-
-```bash
-LLM_PROVIDER=openrouter
-OPENROUTER_API_KEY=...               # never commit this
-OPENROUTER_MODEL=...                 # a current free model that supports tool calling
-```
 
 ## Retrain from scratch
 
@@ -265,7 +265,7 @@ All messages in `demo_samples/` are fictional.
 - **A real Hinglish dataset**: the Hinglish-only test has 87 rows; real code-mixed messages
   (and casual legit chat) are needed for both training and evaluation.
 - **User-feedback loop**: let users mark wrong verdicts, review them, and use them to retrain.
-- A stronger hosted LLM for more natural Hindi/Hinglish explanations (the guards stay either way).
+- A larger local LLM (when hardware allows) for more natural Hindi/Hinglish explanations; the guards stay either way.
 
 ## Team
 

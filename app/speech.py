@@ -1,5 +1,6 @@
 """Speech -> text with faster-whisper ("small" by default, CPU int8) and text -> speech with
-edge-tts. Models load on first use.
+edge-tts, falling back to the built-in macOS voices (`say`) when there is no internet.
+Models load on first use.
 
 Hinglish note: Whisper, left to auto-detect, writes Hindi/Hinglish speech in Devanagari (or,
 for "base", Urdu) script, which the classifier (trained on Roman-script text) cannot read. Decoding
@@ -12,11 +13,17 @@ import asyncio
 import io
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 from functools import lru_cache
+from pathlib import Path
 
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")  # small >> base on Hinglish
 TTS_VOICE_EN = os.getenv("TTS_VOICE_EN", "en-IN-NeerjaNeural")
 TTS_VOICE_HI = os.getenv("TTS_VOICE_HI", "hi-IN-SwaraNeural")
+SAY_VOICE_EN = os.getenv("SAY_VOICE_EN", "Rishi")  # offline macOS voices (English India / Hindi)
+SAY_VOICE_HI = os.getenv("SAY_VOICE_HI", "Lekha")
 _DEVANAGARI = re.compile(r"[\u0900-\u097F]")
 _ROMAN_PROMPT = "Haan bhai, main theek hoon. Aap kaise ho? Kal milte hain, okay."
 
@@ -58,9 +65,25 @@ def _speakable(text: str, limit: int = 1500) -> str:
     return t[:limit]
 
 
+def _say_offline(text: str, timeout: float = 60.0) -> bytes | None:
+    """Text -> WAV bytes with the macOS `say` command (no internet needed). None if unavailable."""
+    if not shutil.which("say"):
+        return None
+    voice = SAY_VOICE_HI if _DEVANAGARI.search(text) else SAY_VOICE_EN
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "reply.wav"
+        try:
+            subprocess.run(["say", "-v", voice, "-o", str(out), "--file-format=WAVE",
+                            "--data-format=LEI16@22050", text],
+                           check=True, timeout=timeout, capture_output=True)
+            return out.read_bytes() or None
+        except Exception:  # noqa: BLE001 - voice missing / timeout -> text only
+            return None
+
+
 def synthesize(text: str, timeout: float = 20.0) -> bytes | None:
-    """Text -> MP3 bytes with edge-tts (needs internet). Returns None on any failure, so the
-    caller can simply show the text."""
+    """Text -> audio bytes: edge-tts MP3 when online, else macOS `say` WAV (offline).
+    Returns None if both fail, so the caller can simply show the text."""
     text = _speakable(text)
     if not text:
         return None
@@ -75,6 +98,13 @@ def synthesize(text: str, timeout: float = 20.0) -> bytes | None:
             return bytes(buf)
 
         audio = asyncio.run(asyncio.wait_for(_run(), timeout))
-        return audio or None
-    except Exception:  # noqa: BLE001 - offline / service error -> text only
-        return None
+        if audio:
+            return audio
+    except Exception:  # noqa: BLE001 - offline / service error -> offline voice
+        pass
+    return _say_offline(text)
+
+
+def audio_format(audio: bytes) -> str:
+    """MIME type for st.audio: WAV from the offline voice, MP3 from edge-tts."""
+    return "audio/wav" if audio[:4] == b"RIFF" else "audio/mp3"

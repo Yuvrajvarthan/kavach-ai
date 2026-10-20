@@ -1,11 +1,12 @@
-"""LLM orchestration for the Kavach Assistant (OpenAI-compatible: Ollama or OpenRouter).
+"""LLM orchestration for the Kavach Assistant: a local Ollama model (qwen2.5:7b by default),
+called through Ollama's OpenAI-compatible API. Everything runs on this machine.
 
 The LLM never classifies: it calls tools (app/tools.py) and explains their output.
 For anything that looks like a message, the code itself runs classify_message +
 safety_guidance before the LLM is called, so the verdict never depends on the LLM choosing a
 tool. Guards replace the LLM reply if it contradicts the model, contains an unverified number
 or website, or is in the wrong script.
-On ANY failure (no server, rate limit, timeout, bad tool call, unverifiable contact detail in
+On ANY failure (Ollama not running, timeout, bad tool call, unverifiable contact detail in
 the reply) run_assistant() falls back to a template answer built from classify_message +
 safety_guidance, so the page always gets an answer.
 """
@@ -27,7 +28,12 @@ from src.red_flags import check_red_flags
 load_dotenv()
 
 MAX_TOOL_ROUNDS = 4
-TIMEOUT_S = 60.0
+TIMEOUT_S = 120.0  # the first call after a restart also loads the model into memory
+# Small local models can fall into a repetition loop ("zaroor zaroor zaroor..."), especially at
+# temperature 0. A token cap, a mild frequency penalty and a fixed seed keep replies short,
+# varied and reproducible; the repetition guard below catches anything that still slips through.
+MAX_REPLY_TOKENS = 600  # ~120 Devanagari words or ~400 English words; loops fail over fast
+GEN_OPTIONS = {"temperature": 0.3, "seed": 42, "frequency_penalty": 0.4}
 
 SYSTEM_PROMPT = """You are Kavach Assistant, a scam-safety helper for people in India.
 
@@ -60,14 +66,24 @@ def detect_language(text: str) -> str:
 
 
 def llm_config() -> dict:
-    provider = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
-    if provider == "openrouter":
-        return {"provider": "openrouter", "base_url": "https://openrouter.ai/api/v1",
-                "api_key": os.getenv("OPENROUTER_API_KEY", ""),
-                "model": os.getenv("OPENROUTER_MODEL", "")}
     return {"provider": "ollama",
             "base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1"),
             "api_key": "ollama", "model": os.getenv("OLLAMA_MODEL", "qwen2.5:7b")}
+
+
+def warm_up() -> bool:
+    """Load the model into memory with a 1-token request, so the first real question is fast.
+    Returns False (silently) if Ollama is not running."""
+    from openai import OpenAI
+
+    cfg = llm_config()
+    try:
+        OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"], timeout=TIMEOUT_S, max_retries=0) \
+            .chat.completions.create(model=cfg["model"], max_tokens=1,
+                                     messages=[{"role": "user", "content": "hi"}])
+        return True
+    except Exception:  # noqa: BLE001 - the assistant falls back to templates anyway
+        return False
 
 
 @dataclass
@@ -258,6 +274,15 @@ def contradicts_model(reply: str, calls: list[dict]) -> bool:
     return False
 
 
+def is_repetitive(reply: str) -> bool:
+    """True for degenerate output: the same word 5+ times in a row, or a long reply made of
+    very few distinct words."""
+    words = re.findall(r"\w+", reply.lower())
+    if re.search(r"\b(\w+)(?:\W+\1\b){4,}", reply.lower()):
+        return True
+    return len(words) > 40 and len(set(words)) / len(words) < 0.3
+
+
 def _wrong_script(reply: str, lang: str) -> bool:
     has_dev = bool(re.search(r"[\u0900-\u097F]", reply))
     return has_dev if lang in ("english", "hinglish") else not has_dev
@@ -266,8 +291,8 @@ def _wrong_script(reply: str, lang: str) -> bool:
 def _run_llm(user_text: str, history: list[dict], lang: str, cfg: dict) -> AssistantResult:
     from openai import OpenAI
 
-    if not cfg["model"] or (cfg["provider"] == "openrouter" and not cfg["api_key"]):
-        raise RuntimeError(f"{cfg['provider']} is not configured (model / API key missing)")
+    if not cfg["model"]:
+        raise RuntimeError("OLLAMA_MODEL is not set")
     client = OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"], timeout=TIMEOUT_S, max_retries=0)
     deadline = time.monotonic() + TIMEOUT_S
 
@@ -276,8 +301,12 @@ def _run_llm(user_text: str, history: list[dict], lang: str, cfg: dict) -> Assis
         if remaining <= 1:
             raise TimeoutError(f"LLM took longer than {TIMEOUT_S:.0f}s")
         kwargs = {"tools": tools} if tools else {}
-        return client.chat.completions.create(model=cfg["model"], messages=messages, temperature=0,
-                                              timeout=remaining, **kwargs).choices[0].message
+        choice = client.chat.completions.create(model=cfg["model"], messages=messages,
+                                                max_tokens=MAX_REPLY_TOKENS, timeout=remaining,
+                                                **GEN_OPTIONS, **kwargs).choices[0]
+        if choice.finish_reason == "length":
+            raise RuntimeError("LLM reply was cut off at the length limit (likely a repetition loop)")
+        return choice.message
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages += [{"role": m["role"], "content": m["content"]} for m in history[-6:]]
@@ -356,7 +385,9 @@ def run_assistant(user_text: str, history: list[dict] | None = None) -> Assistan
                                               for c in result.tool_calls]
     problem = None
     bad = unverified_contacts(result.reply, sources)
-    if bad:
+    if is_repetitive(result.reply):
+        problem = "LLM reply was repetitive"
+    elif bad:
         problem = f"Unverified contact details in LLM reply: {bad}"
     elif contradicts_model(result.reply, result.tool_calls):
         problem = "LLM reply contradicted the model's verdict"
