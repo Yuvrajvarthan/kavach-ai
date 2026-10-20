@@ -1,0 +1,14 @@
+# Dev-only tools (not installed on Hugging Face Spaces)
+-r requirements.txt
+
+# --- Notebook & tests ---
+jupyter>=1.0
+nbconvert>=7.16
+ipykernel>=6.29
+pytest>=8.0
+
+# --- App screenshots (scripts/take_screenshots.py); then run: playwright install chromium
+playwright>=1.47
+
+# --- Stretch (Phase 8, DistilBERT on MPS) — install separately when needed:
+# pip install torch transformers datasets accelerate
