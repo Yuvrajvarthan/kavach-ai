@@ -1,0 +1,352 @@
+{
+  "dataset": {
+    "raw_rows": 14000,
+    "duplicates_removed": 0,
+    "clean_rows": 14000,
+    "train_rows": 11200,
+    "test_rows": 2800,
+    "class_counts": {
+      "legit": 5600,
+      "government_impersonation": 2905,
+      "financial_fraud": 3080,
+      "bank_phishing": 1875,
+      "romance_parcel_sextortion": 540
+    }
+  },
+  "models": {
+    "Naive Bayes": {
+      "accuracy": 0.9768,
+      "macro_f1": 0.9756,
+      "weighted_f1": 0.9768,
+      "roc_auc_ovr": 0.9971,
+      "train_time_s": 1.0105
+    },
+    "Logistic Regression": {
+      "accuracy": 0.9971,
+      "macro_f1": 0.9968,
+      "weighted_f1": 0.9971,
+      "roc_auc_ovr": 1.0,
+      "train_time_s": 1.8311
+    },
+    "Linear SVM": {
+      "accuracy": 0.9979,
+      "macro_f1": 0.9976,
+      "weighted_f1": 0.9979,
+      "roc_auc_ovr": 1.0,
+      "train_time_s": 2.7774
+    },
+    "Random Forest": {
+      "accuracy": 0.9821,
+      "macro_f1": 0.9824,
+      "weighted_f1": 0.9821,
+      "roc_auc_ovr": 0.9992,
+      "train_time_s": 1.5151
+    }
+  },
+  "best_model": "Linear SVM",
+  "per_class": {
+    "legit": {
+      "precision": 0.9991,
+      "recall": 1.0,
+      "f1": 0.9996,
+      "support": 1120
+    },
+    "government_impersonation": {
+      "precision": 1.0,
+      "recall": 0.9966,
+      "f1": 0.9983,
+      "support": 581
+    },
+    "financial_fraud": {
+      "precision": 0.9951,
+      "recall": 0.9984,
+      "f1": 0.9968,
+      "support": 616
+    },
+    "bank_phishing": {
+      "precision": 0.9947,
+      "recall": 0.992,
+      "f1": 0.9933,
+      "support": 375
+    },
+    "romance_parcel_sextortion": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 108
+    }
+  },
+  "ood": {
+    "hinglish": {
+      "n": 3558,
+      "accuracy": 0.6928,
+      "precision": 0.2918,
+      "recall": 0.4739,
+      "f1": 0.3612
+    },
+    "uci_sms": {
+      "n": 5171,
+      "accuracy": 0.7142,
+      "precision": 0.2101,
+      "recall": 0.4579,
+      "f1": 0.2881
+    },
+    "hinglish_only": {
+      "n": 87,
+      "accuracy": 0.7701,
+      "precision": 0.8857,
+      "recall": 0.6596,
+      "f1": 0.7561
+    }
+  },
+  "eda": {
+    "pct_url_scam": 24.6071,
+    "pct_url_legit": 3.375,
+    "pct_phone_scam": 0.0,
+    "pct_phone_legit": 16.2321,
+    "pct_amount_scam": 53.2619,
+    "pct_amount_legit": 55.2857,
+    "avg_words_scam": 29.8455,
+    "avg_words_legit": 26.9282
+  },
+  "top_words": {
+    "legit": [
+      "app",
+      "otp",
+      "order",
+      "successfully",
+      "txn"
+    ],
+    "government_impersonation": [
+      "si",
+      "cybercrime",
+      "trai",
+      "pan card",
+      "your pan"
+    ],
+    "financial_fraud": [
+      "pnb visa",
+      "pnb fraud",
+      "ncb",
+      "your sim",
+      "sim card"
+    ],
+    "bank_phishing": [
+      "india security",
+      "bank visa",
+      "bank transaction",
+      "bank",
+      "bank fraud"
+    ],
+    "romance_parcel_sextortion": [
+      "video",
+      "adult",
+      "help me",
+      "your screen",
+      "hi"
+    ]
+  },
+  "models_grouped": {
+    "Naive Bayes": {
+      "accuracy": 0.9486,
+      "macro_f1": 0.9388,
+      "weighted_f1": 0.9482,
+      "roc_auc_ovr": 0.9947,
+      "train_time_s": 1.0061
+    },
+    "Logistic Regression": {
+      "accuracy": 0.9679,
+      "macro_f1": 0.9573,
+      "weighted_f1": 0.9679,
+      "roc_auc_ovr": 0.9993,
+      "train_time_s": 1.7582
+    },
+    "Linear SVM": {
+      "accuracy": 0.9854,
+      "macro_f1": 0.9854,
+      "weighted_f1": 0.9853,
+      "roc_auc_ovr": 0.9995,
+      "train_time_s": 2.7755
+    },
+    "Random Forest": {
+      "accuracy": 0.9611,
+      "macro_f1": 0.9538,
+      "weighted_f1": 0.9608,
+      "roc_auc_ovr": 0.9958,
+      "train_time_s": 1.5074
+    }
+  },
+  "per_class_grouped": {
+    "legit": {
+      "precision": 0.9991,
+      "recall": 1.0,
+      "f1": 0.9996,
+      "support": 1120
+    },
+    "government_impersonation": {
+      "precision": 0.9626,
+      "recall": 0.9759,
+      "f1": 0.9692,
+      "support": 581
+    },
+    "financial_fraud": {
+      "precision": 0.9818,
+      "recall": 0.961,
+      "f1": 0.9713,
+      "support": 616
+    },
+    "bank_phishing": {
+      "precision": 0.9815,
+      "recall": 0.992,
+      "f1": 0.9867,
+      "support": 375
+    },
+    "romance_parcel_sextortion": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 108
+    }
+  },
+  "best_model_reason": "Linear SVM has the highest macro-F1 on the template-grouped split (0.9854 vs Logistic Regression 0.9573). The grouped split is used because the random split lets near-identical templated messages appear in both train and test, which inflates scores (random-split macro-F1 for Linear SVM: 0.9976).",
+  "dataset_grouped": {
+    "n_templates": 6693,
+    "train_rows": 11200,
+    "test_rows": 2800,
+    "test_class_counts": {
+      "legit": 1120,
+      "government_impersonation": 581,
+      "financial_fraud": 616,
+      "bank_phishing": 375,
+      "romance_parcel_sextortion": 108
+    }
+  },
+  "ood_duplicates_removed": {
+    "uci_sms": 403,
+    "hinglish": 229
+  },
+  "saved_model_note": "artifacts/model.joblib is Linear SVM refit on all 14000 clean rows; in-domain metrics come from the split-trained models; OOD metrics use the saved model.",
+  "rule_layer": {
+    "false_alarms": {
+      "sentinel_legit_test": {
+        "n": 1120,
+        "pct_advisory_any": 6.1607,
+        "pct_advisory_high": 0.0
+      },
+      "uci_ham": {
+        "n": 4518,
+        "pct_advisory_any": 0.0443,
+        "pct_advisory_high": 0.0
+      }
+    },
+    "scam_recall": {
+      "uci_sms": {
+        "n_scam": 653,
+        "recall_ml_only": 0.4579,
+        "recall_ml_or_high": 0.4579,
+        "precision_ml_only": 0.2101,
+        "precision_ml_or_high": 0.2101
+      },
+      "hinglish_only": {
+        "n_scam": 47,
+        "recall_ml_only": 0.6596,
+        "recall_ml_or_high": 0.6809,
+        "precision_ml_only": 0.8857,
+        "precision_ml_or_high": 0.8889
+      }
+    },
+    "note": "advisory = 'high' if 3+ red flags, 'caution' if 2; rules in src/red_flags.py"
+  },
+  "phone_token_ablation": {
+    "macro_f1_random": {
+      "Naive Bayes": {
+        "with_phone": 0.9756,
+        "without_phone": 0.9756
+      },
+      "Logistic Regression": {
+        "with_phone": 0.9964,
+        "without_phone": 0.9968
+      },
+      "Linear SVM": {
+        "with_phone": 0.9976,
+        "without_phone": 0.9976
+      },
+      "Random Forest": {
+        "with_phone": 0.9825,
+        "without_phone": 0.9824
+      }
+    },
+    "macro_f1_grouped": {
+      "Naive Bayes": {
+        "with_phone": 0.9388,
+        "without_phone": 0.9388
+      },
+      "Logistic Regression": {
+        "with_phone": 0.9573,
+        "without_phone": 0.9573
+      },
+      "Linear SVM": {
+        "with_phone": 0.9851,
+        "without_phone": 0.9854
+      },
+      "Random Forest": {
+        "with_phone": 0.9552,
+        "without_phone": 0.9538
+      }
+    },
+    "best_model": {
+      "with_phone": "Linear SVM",
+      "without_phone": "Linear SVM"
+    },
+    "ood": {
+      "hinglish": {
+        "with_phone": {
+          "n": 3558,
+          "accuracy": 0.6757,
+          "precision": 0.2534,
+          "recall": 0.3957,
+          "f1": 0.309
+        },
+        "without_phone": {
+          "n": 3558,
+          "accuracy": 0.6928,
+          "precision": 0.2918,
+          "recall": 0.4739,
+          "f1": 0.3612
+        }
+      },
+      "uci_sms": {
+        "with_phone": {
+          "n": 5171,
+          "accuracy": 0.701,
+          "precision": 0.1781,
+          "recall": 0.3783,
+          "f1": 0.2422
+        },
+        "without_phone": {
+          "n": 5171,
+          "accuracy": 0.7142,
+          "precision": 0.2101,
+          "recall": 0.4579,
+          "f1": 0.2881
+        }
+      },
+      "hinglish_only": {
+        "with_phone": {
+          "n": 87,
+          "accuracy": 0.7701,
+          "precision": 0.8857,
+          "recall": 0.6596,
+          "f1": 0.7561
+        },
+        "without_phone": {
+          "n": 87,
+          "accuracy": 0.7701,
+          "precision": 0.8857,
+          "recall": 0.6596,
+          "f1": 0.7561
+        }
+      }
+    }
+  }
+}
