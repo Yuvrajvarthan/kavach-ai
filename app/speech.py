@@ -24,6 +24,8 @@ TTS_VOICE_EN = os.getenv("TTS_VOICE_EN", "en-IN-NeerjaNeural")
 TTS_VOICE_HI = os.getenv("TTS_VOICE_HI", "hi-IN-SwaraNeural")
 SAY_VOICE_EN = os.getenv("SAY_VOICE_EN", "Rishi")  # offline macOS voices (English India / Hindi)
 SAY_VOICE_HI = os.getenv("SAY_VOICE_HI", "Lekha")
+# KAVACH_OFFLINE_VOICE=1 skips edge-tts (internet) and always uses the macOS voices.
+_edge_tts_ok = os.getenv("KAVACH_OFFLINE_VOICE", "0") != "1"
 _DEVANAGARI = re.compile(r"[\u0900-\u097F]")
 _ROMAN_PROMPT = "Haan bhai, main theek hoon. Aap kaise ho? Kal milte hain, okay."
 
@@ -31,7 +33,10 @@ _ROMAN_PROMPT = "Haan bhai, main theek hoon. Aap kaise ho? Kal milte hain, okay.
 @lru_cache(maxsize=1)
 def get_whisper():
     from faster_whisper import WhisperModel  # heavy import, keep lazy
-    return WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
+    try:  # load from the local cache without touching the network (works with Wi-Fi off)
+        return WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8", local_files_only=True)
+    except Exception:  # noqa: BLE001 - first run: not cached yet, download once
+        return WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
 
 
 def transcribe(audio: bytes | str) -> dict:
@@ -81,12 +86,15 @@ def _say_offline(text: str, timeout: float = 60.0) -> bytes | None:
             return None
 
 
-def synthesize(text: str, timeout: float = 20.0) -> bytes | None:
+def synthesize(text: str, timeout: float = 8.0) -> bytes | None:
     """Text -> audio bytes: edge-tts MP3 when online, else macOS `say` WAV (offline).
     Returns None if both fail, so the caller can simply show the text."""
+    global _edge_tts_ok
     text = _speakable(text)
     if not text:
         return None
+    if not _edge_tts_ok:
+        return _say_offline(text)
     try:
         import edge_tts
 
@@ -100,8 +108,8 @@ def synthesize(text: str, timeout: float = 20.0) -> bytes | None:
         audio = asyncio.run(asyncio.wait_for(_run(), timeout))
         if audio:
             return audio
-    except Exception:  # noqa: BLE001 - offline / service error -> offline voice
-        pass
+    except Exception:  # noqa: BLE001 - offline / service error -> offline voice from now on
+        _edge_tts_ok = False
     return _say_offline(text)
 
 

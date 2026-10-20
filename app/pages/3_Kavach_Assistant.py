@@ -32,9 +32,12 @@ if not _warm_up_once():
 if "chat" not in st.session_state:
     st.session_state.chat = []  # [{"role", "content", "voice", "result", "audio"}]
 
+# While an answer is being prepared, inputs are disabled so a second message can't restart the run.
+busy = bool(st.session_state.get("pending_turn"))
+
 c1, c2 = st.columns([3, 1])
 speak = c2.toggle("🔊 Speak replies", value=True)
-if c2.button("Clear chat"):
+if c2.button("Clear chat", disabled=busy):
     st.session_state.chat = []
     st.session_state.pending_turn = None
     st.session_state.pop("voice_digest_asst", None)
@@ -71,7 +74,13 @@ def _render(msg: dict):
                        "output and vetted guidance.")
         if msg.get("audio"):
             st.audio(msg["audio"], format=audio_format(msg["audio"]))
-        with st.expander(f"🔧 Tools called ({len(r.tool_calls)}): the model, not the AI, classified"):
+        names = {c["name"] for c in r.tool_calls}
+        label = (f"🔧 Tools called ({len(r.tool_calls)}): the model, not the AI, classified"
+                 if "classify_message" in names else
+                 "📊 Dataset question: numbers come from the training data, no message classified"
+                 if "query_dataset" in names else
+                 "🔧 General question: answered from vetted safety guidance, no message classified")
+        with st.expander(label):
             st.caption(f"Mode: {r.mode} · language: {r.language} · provider: {r.provider}")
             if r.error:
                 st.caption(f"Fallback reason: {r.error}")
@@ -90,17 +99,17 @@ for m in st.session_state.chat:
 # ------------------------------------------------------------------ voice input
 with c1.expander("🎙️ Ask by voice", expanded=False):
     v1, v2 = st.columns(2)
-    recorded = v1.audio_input("Record your question")
+    recorded = v1.audio_input("Record your question", disabled=busy)
     demo_clips = demo_files("audio_query_*.wav")
     demo_choice = v2.selectbox("…or use a demo voice question", ["—"] + [p.name for p in demo_clips],
-                               key="demo_voice")
+                               key="demo_voice", disabled=busy)
 
 audio_bytes = recorded.getvalue() if recorded is not None else None
 if audio_bytes is None and demo_choice != "—":
     audio_bytes = (demo_clips[0].parent / demo_choice).read_bytes()
 
 pending, from_voice = None, False
-if audio_bytes:
+if audio_bytes and not busy:
     digest = hashlib.sha1(audio_bytes).hexdigest()
     if st.session_state.get("voice_digest_asst") != digest:
         st.session_state["voice_digest_asst"] = digest
@@ -110,7 +119,8 @@ if audio_bytes:
         if not pending:
             st.warning("Couldn't hear any words in that recording. Please try again.")
 
-typed = st.chat_input("Paste a suspicious message or ask a question…")
+typed = st.chat_input("Please wait for the answer…" if busy else
+                      "Paste a suspicious message or ask a question…", disabled=busy)
 if typed:
     pending, from_voice = typed.strip(), False
 
@@ -120,7 +130,7 @@ if pending:
     st.session_state.chat.append(user_msg)
     # Saved before the slow work: if a widget event interrupts this run, the next run answers it.
     st.session_state.pending_turn = {"text": pending, "history": history}
-    _render(user_msg)
+    st.rerun()  # redraw with the inputs disabled before the slow work starts
 
 if st.session_state.get("pending_turn"):
     turn = st.session_state.pending_turn

@@ -32,8 +32,11 @@ TIMEOUT_S = 120.0  # the first call after a restart also loads the model into me
 # Small local models can fall into a repetition loop ("zaroor zaroor zaroor..."), especially at
 # temperature 0. A token cap, a mild frequency penalty and a fixed seed keep replies short,
 # varied and reproducible; the repetition guard below catches anything that still slips through.
-MAX_REPLY_TOKENS = 600  # ~120 Devanagari words or ~400 English words; loops fail over fast
+# Replies are asked to stay under 150 words. Devanagari Hindi needs ~4-5x more tokens per word.
+MAX_REPLY_TOKENS = {"english": 400, "hinglish": 400, "hindi": 700}
 GEN_OPTIONS = {"temperature": 0.3, "seed": 42, "frequency_penalty": 0.4}
+# Ollama unloads an idle model after 5 minutes by default; keep it in memory for the whole demo.
+KEEP_ALIVE = os.getenv("OLLAMA_KEEP_ALIVE_REQ", "2h")
 
 SYSTEM_PROMPT = """You are Kavach Assistant, a scam-safety helper for people in India.
 
@@ -80,7 +83,8 @@ def warm_up() -> bool:
     try:
         OpenAI(base_url=cfg["base_url"], api_key=cfg["api_key"], timeout=TIMEOUT_S, max_retries=0) \
             .chat.completions.create(model=cfg["model"], max_tokens=1,
-                                     messages=[{"role": "user", "content": "hi"}])
+                                     messages=[{"role": "user", "content": "hi"}],
+                                     extra_body={"keep_alive": KEEP_ALIVE})
         return True
     except Exception:  # noqa: BLE001 - the assistant falls back to templates anyway
         return False
@@ -302,7 +306,8 @@ def _run_llm(user_text: str, history: list[dict], lang: str, cfg: dict) -> Assis
             raise TimeoutError(f"LLM took longer than {TIMEOUT_S:.0f}s")
         kwargs = {"tools": tools} if tools else {}
         choice = client.chat.completions.create(model=cfg["model"], messages=messages,
-                                                max_tokens=MAX_REPLY_TOKENS, timeout=remaining,
+                                                max_tokens=MAX_REPLY_TOKENS[lang], timeout=remaining,
+                                                extra_body={"keep_alive": KEEP_ALIVE},
                                                 **GEN_OPTIONS, **kwargs).choices[0]
         if choice.finish_reason == "length":
             raise RuntimeError("LLM reply was cut off at the length limit (likely a repetition loop)")
