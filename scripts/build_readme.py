@@ -92,6 +92,11 @@ readme = f"""# 🛡️ Kavach AI
 (Ollama `qwen2.5:7b`) all run locally; no API keys and no cloud services. Only the natural-sounding voice
 (edge-tts) uses the internet, and without it replies are spoken by the built-in macOS voices.
 
+## Project report & slides
+
+- 📄 [Project report (PDF)](docs/Kavach_AI_Report.pdf)
+- 📊 [Presentation slides (PDF)](docs/Kavach_AI_Presentation.pdf)
+
 ## The problem
 
 People in India receive a steady stream of fraudulent SMS and WhatsApp messages: fake bank KYC alerts,
